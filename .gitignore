@@ -1,0 +1,10 @@
+.codex/
+node_modules/
+
+# Local visual QA captures and other generated screenshots
+*.png
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.log
