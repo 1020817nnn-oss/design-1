@@ -141,6 +141,13 @@ test("page defines the industrial design content model and sample items", () => 
     "Parametric Vent Pattern Tests",
     "Three-Pass Object Critique",
   ];
+  const expectedItemMetaByTitle = new Map([
+    ["Modular Lamp Handle Study", { category: "works", template: "case-study" }],
+    ["Foam Model Balance Notes", { category: "process", template: "research-note" }],
+    ["Soft Edge Appliance References", { category: "inspiration", template: "research-note" }],
+    ["Parametric Vent Pattern Tests", { category: "experiments", template: "experiment-log" }],
+    ["Three-Pass Object Critique", { category: "methods", template: "research-note" }],
+  ]);
 
   assert.equal(sectionMeta.length, 5);
   assert.equal(contentItems.length, 5);
@@ -151,6 +158,7 @@ test("page defines the industrial design content model and sample items", () => 
   const slugSet = new Set(slugs);
 
   assert.equal(slugSet.size, contentItems.length);
+  assert.deepEqual([...new Set(contentItems.map((item) => item.category))].sort(), expectedCategories.toSorted());
 
   for (const item of contentItems) {
     for (const field of requiredFields) {
@@ -158,6 +166,11 @@ test("page defines the industrial design content model and sample items", () => 
     }
 
     assert.ok(categorySet.has(item.category), `expected ${item.slug} category to match a section`);
+    assert.deepEqual(
+      { category: item.category, template: item.template },
+      expectedItemMetaByTitle.get(item.title),
+      `expected ${item.title} to use its intended category and template`,
+    );
     assert.ok(Array.isArray(item.tags), `expected ${item.slug} tags to be an array`);
     assert.ok(Array.isArray(item.materials), `expected ${item.slug} materials to be an array`);
     assert.ok(Array.isArray(item.tools), `expected ${item.slug} tools to be an array`);
