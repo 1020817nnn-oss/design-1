@@ -6,22 +6,31 @@ const test = require("node:test");
 const root = path.resolve(__dirname, "..");
 const htmlPath = path.join(root, "index.html");
 
-test("replica renders the five Interface Craft opening cards", () => {
+test("homepage renders the five industrial design library cards", () => {
   const html = fs.readFileSync(htmlPath, "utf8");
 
   const expectedTitles = [
-    "Working Knowledge",
-    "Practical Demonstration",
-    "Collaborating with AI",
-    "Means & Methods",
-    "Interface Kit",
+    "Works",
+    "Process",
+    "Inspiration",
+    "Experiments",
+    "Methods",
   ];
 
+  assert.match(html, /<title>Industrial Design Library<\/title>/);
+  assert.match(html, /<h1 id="page-title">Industrial Design Library<\/h1>/);
+  assert.match(html, /A curated working library for industrial design studies, references, experiments, and finished work\./);
   assert.match(html, /class="[^"]*\bcard-stage\b/);
+  assert.match(html, /aria-label="Industrial design library sections"/);
   assert.equal((html.match(/class="[^"]*\bcraft-card\b/g) || []).length, 5);
 
   for (const title of expectedTitles) {
-    assert.match(html, new RegExp(title.replace(/[&]/g, "&amp;|&"), "i"));
+    assert.match(html, new RegExp(`aria-label="${title}"`, "i"));
+    assert.match(html, new RegExp(`>${title}<`, "i"));
+  }
+
+  for (const category of ["works", "process", "inspiration", "experiments", "methods"]) {
+    assert.match(html, new RegExp(`data-category="${category}"`, "i"));
   }
 });
 
