@@ -719,6 +719,96 @@
         margin: 0 0 24px;
       }
 
+      .detail-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 0.72fr) minmax(240px, 0.28fr);
+        gap: 40px;
+        align-items: start;
+      }
+
+      .detail-main h2 {
+        margin: 0 0 18px;
+        font-family: var(--serif);
+        font-size: clamp(44px, 6vw, 86px);
+        font-weight: 500;
+        line-height: 0.92;
+      }
+
+      .detail-summary {
+        margin: 0 0 34px;
+        color: var(--muted);
+        font-size: 21px;
+        line-height: 1.42;
+      }
+
+      .detail-cover {
+        min-height: 340px;
+        margin-bottom: 34px;
+        overflow: hidden;
+        border: 1px solid rgba(32, 31, 30, 0.12);
+        border-radius: 8px;
+      }
+
+      .detail-cover .cover-swatch {
+        display: block;
+        min-height: inherit;
+        border-bottom: 0;
+      }
+
+      .detail-section {
+        padding: 28px 0;
+        border-top: 1px solid rgba(32, 31, 30, 0.1);
+      }
+
+      .detail-section h3 {
+        margin: 0 0 12px;
+        font-family: var(--serif);
+        font-size: 30px;
+        font-weight: 500;
+      }
+
+      .detail-section p,
+      .detail-section li {
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.55;
+      }
+
+      .detail-section ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .detail-sidebar {
+        position: sticky;
+        top: 74px;
+        border: 1px solid rgba(32, 31, 30, 0.12);
+        border-radius: 8px;
+        padding: 18px;
+        background: rgba(255, 255, 255, 0.58);
+      }
+
+      .detail-meta-list {
+        display: grid;
+        gap: 14px;
+        margin: 0;
+      }
+
+      .detail-meta-list dt {
+        color: #8a8176;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .detail-meta-list dd {
+        margin: 4px 0 0;
+        color: #37322d;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
       @keyframes cardEnter {
         0% {
           opacity: 0;
@@ -790,6 +880,18 @@
 
         .content-grid {
           grid-template-columns: 1fr;
+        }
+
+        .detail-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .detail-sidebar {
+          position: static;
+        }
+
+        .detail-cover {
+          min-height: 220px;
         }
 
         .content-card {
@@ -877,6 +979,7 @@
       <section class="library-feed" id="library-feed" aria-label="Curated industrial design content">
         <div id="home-view"></div>
         <div id="category-view" hidden></div>
+        <div id="detail-view" hidden></div>
       </section>
     </main>
     <script>
@@ -1031,6 +1134,7 @@
 
       const homeView = document.querySelector("#home-view");
       const categoryView = document.querySelector("#category-view");
+      const detailView = document.querySelector("#detail-view");
 
       function byDateDesc(items) {
         return [...items].sort((a, b) => b.date.localeCompare(a.date));
@@ -1077,9 +1181,13 @@
         return tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("");
       }
 
+      function createItemHref(item) {
+        return `#item/${item.slug}`;
+      }
+
       function createContentCard(item) {
         return `
-          <a class="content-card" href="#item/${escapeHtml(item.slug)}" data-route="item" data-category="${escapeHtml(item.category)}">
+          <a class="content-card" href="${escapeHtml(createItemHref(item))}" data-route="item" data-category="${escapeHtml(item.category)}">
             <span class="cover-swatch" data-cover="${escapeHtml(item.cover)}" aria-hidden="true"></span>
             <span class="content-card-body">
               <span class="card-meta">${escapeHtml(item.category)} / ${escapeHtml(item.date)}</span>
@@ -1161,12 +1269,166 @@
         return sectionMeta.find((section) => section.category === category);
       }
 
+      function getItem(slug) {
+        return contentItems.find((item) => item.slug === slug);
+      }
+
       function getRelatedSections(category) {
         return sectionMeta.filter((section) => section.category !== category).slice(0, 4);
       }
 
       function createCategoryHref(category) {
         return `#category/${category}`;
+      }
+
+      function renderList(values) {
+        if (!Array.isArray(values) || values.length === 0) {
+          return "";
+        }
+
+        return `<ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul>`;
+      }
+
+      function renderDetailSection(title, body) {
+        if (!body) {
+          return "";
+        }
+
+        return `
+          <section class="detail-section">
+            <h3>${escapeHtml(title)}</h3>
+            ${body}
+          </section>
+        `;
+      }
+
+      function renderParagraphSection(title, value) {
+        if (!value) {
+          return "";
+        }
+
+        return renderDetailSection(title, `<p>${escapeHtml(value)}</p>`);
+      }
+
+      function renderListSection(title, values) {
+        return renderDetailSection(title, renderList(values));
+      }
+
+      function renderMetaList(item) {
+        const meta = [
+          ["Category", getSection(item.category)?.title || item.category],
+          ["Status", item.status],
+          ["Date", item.date],
+          ["Tags", getItemTags(item).join(", ")],
+          ["Materials", getItemMaterials(item).join(", ")],
+          ["Tools", Array.isArray(item.tools) ? item.tools.join(", ") : ""],
+          ["Role", item.role],
+          ["Year", item.year],
+          ["Duration", item.duration],
+          ["Stage", item.stage],
+        ].filter(([, value]) => value);
+
+        return `
+          <dl class="detail-meta-list">
+            ${meta.map(([label, value]) => `
+              <div>
+                <dt>${escapeHtml(label)}</dt>
+                <dd>${escapeHtml(value)}</dd>
+              </div>
+            `).join("")}
+          </dl>
+        `;
+      }
+
+      function renderDetailShell(item, templateLabel, mainContent) {
+        const section = getSection(item.category);
+
+        return `
+          <article class="route-panel detail-layout" aria-labelledby="detail-title">
+            <div class="detail-main">
+              <div class="route-topline">
+                <a class="back-link" href="${escapeHtml(createCategoryHref(item.category))}">Back to ${escapeHtml(section?.title || "Category")}</a>
+                <span class="feed-eyebrow">${escapeHtml(templateLabel)}</span>
+              </div>
+              <h2 id="detail-title">${escapeHtml(item.title)}</h2>
+              <p class="detail-summary">${escapeHtml(item.summary)}</p>
+              <div class="detail-cover">
+                <span class="cover-swatch" data-cover="${escapeHtml(item.cover)}" aria-hidden="true"></span>
+              </div>
+              ${mainContent}
+            </div>
+            <aside class="detail-sidebar" aria-label="Item details">
+              ${renderMetaList(item)}
+            </aside>
+          </article>
+        `;
+      }
+
+      function renderCaseStudy(item) {
+        const mainContent = [
+          renderParagraphSection("Brief", item.brief),
+          renderParagraphSection("Problem", item.problem),
+          renderParagraphSection("Outcome", item.outcome),
+          renderParagraphSection("Studio Note", item.body),
+          renderListSection("Process Highlights", item.processHighlights),
+          renderListSection("Gallery", item.gallery),
+          renderParagraphSection("Reflection", item.reflection),
+        ].join("");
+
+        return renderDetailShell(item, "Case Study", mainContent);
+      }
+
+      function renderResearchNote(item) {
+        const mainContent = [
+          renderParagraphSection("Context", item.context || item.source || item.linkedWork),
+          renderParagraphSection("Question", item.question),
+          renderParagraphSection("Why It Matters", item.whyItMatters),
+          renderParagraphSection("Observation", item.designObservation || item.principle),
+          renderParagraphSection("Notebook", item.body),
+          renderListSection("Inputs", item.inputs),
+          renderListSection("Iterations", item.iterations),
+          renderListSection("Steps", item.steps),
+          renderListSection("Pitfalls", item.pitfalls),
+          renderListSection("Templates", item.templates),
+          renderParagraphSection("Decision", item.decision),
+          renderParagraphSection("Next Step", item.nextStep),
+          renderParagraphSection("Example", item.example),
+          renderParagraphSection("Credits", item.imageCredits),
+        ].join("");
+
+        return renderDetailShell(item, "Research Note", mainContent);
+      }
+
+      function renderExperimentLog(item) {
+        const mainContent = [
+          renderParagraphSection("Hypothesis", item.hypothesis),
+          renderParagraphSection("Method", item.method),
+          renderParagraphSection("Notebook", item.body),
+          renderListSection("Variables", item.variables),
+          renderListSection("Outputs", item.outputs),
+          renderParagraphSection("Evaluation", item.evaluation),
+          renderParagraphSection("Reusable Learning", item.reusableLearning),
+        ].join("");
+
+        return renderDetailShell(item, "Experiment Log", mainContent);
+      }
+
+      function renderDetail(slug) {
+        const item = getItem(slug);
+
+        if (!item) {
+          return "";
+        }
+
+        if (item.template === "case-study") {
+          return renderCaseStudy(item);
+        }
+
+        if (item.template === "experiment-log") {
+          return renderExperimentLog(item);
+        }
+
+        return renderResearchNote(item);
       }
 
       function renderCategory(category) {
@@ -1219,6 +1481,7 @@
       function showHomeView() {
         homeView.hidden = false;
         categoryView.hidden = true;
+        detailView.hidden = true;
       }
 
       function showCategoryView(category) {
@@ -1232,6 +1495,22 @@
         categoryView.innerHTML = renderCategory(category);
         homeView.hidden = true;
         categoryView.hidden = false;
+        detailView.hidden = true;
+      }
+
+      function showDetailView(slug) {
+        const detailHtml = renderDetail(slug);
+
+        if (!detailHtml) {
+          detailView.innerHTML = "";
+          showHomeView();
+          return;
+        }
+
+        detailView.innerHTML = detailHtml;
+        homeView.hidden = true;
+        categoryView.hidden = true;
+        detailView.hidden = false;
       }
 
       function renderRoute() {
@@ -1239,6 +1518,11 @@
 
         if (hash.startsWith("category/")) {
           showCategoryView(hash.replace("category/", ""));
+          return;
+        }
+
+        if (hash.startsWith("item/")) {
+          showDetailView(hash.replace("item/", ""));
           return;
         }
 

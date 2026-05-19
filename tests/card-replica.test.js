@@ -102,6 +102,7 @@ function createCardStub() {
 function runInlineScript(html, beforeRender = "") {
   const homeView = { innerHTML: "" };
   const categoryView = { hidden: false, innerHTML: "" };
+  const detailView = { hidden: true, innerHTML: "" };
   const stage = {
     dataset: {},
     classList: createClassList(),
@@ -124,6 +125,10 @@ function runInlineScript(html, beforeRender = "") {
 
         if (selector === "#category-view") {
           return categoryView;
+        }
+
+        if (selector === "#detail-view") {
+          return detailView;
         }
 
         if (selector === ".card-stage") {
@@ -151,7 +156,7 @@ function runInlineScript(html, beforeRender = "") {
 
   vm.runInNewContext(script, context, { timeout: 1000 });
 
-  return { homeView, categoryView, stage, cards, location, windowListeners };
+  return { homeView, categoryView, detailView, stage, cards, location, windowListeners };
 }
 
 test("homepage renders the five industrial design library cards", () => {
@@ -391,4 +396,49 @@ test("category route renders category view and active card second click changes 
 
   cards[0].dispatchEvent("click");
   assert.equal(location.hash, "category/works");
+});
+
+test("page defines item detail views for case studies, research notes, and experiment logs", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+
+  assert.match(html, /id="detail-view"/);
+  assert.match(html, /function\s+renderDetail/);
+  assert.match(html, /function\s+renderCaseStudy/);
+  assert.match(html, /function\s+renderResearchNote/);
+  assert.match(html, /function\s+renderExperimentLog/);
+  assert.match(html, /Case Study/);
+  assert.match(html, /Research Note/);
+  assert.match(html, /Experiment Log/);
+  assert.match(html, /#item\/\$\{item\.slug\}/);
+  assert.match(html, /hash\.startsWith\("item\/"\)/);
+
+  const detailRoutes = [
+    {
+      slug: "modular-lamp-handle-study",
+      label: "Case Study",
+      expected: "Design a small lamp that can move between desk, shelf, and bedside contexts",
+    },
+    {
+      slug: "foam-model-balance-notes",
+      label: "Research Note",
+      expected: "Does the handle invite pickup without making the lamp read as a lantern?",
+    },
+    {
+      slug: "parametric-vent-pattern-tests",
+      label: "Experiment Log",
+      expected: "Grouped vent rhythms can communicate performance",
+    },
+  ];
+
+  for (const route of detailRoutes) {
+    const { homeView, categoryView, detailView } = runInlineScript(html, `
+      window.location.hash = "#item/${route.slug}";
+    `);
+
+    assert.equal(homeView.hidden, true);
+    assert.equal(categoryView.hidden, true);
+    assert.equal(detailView.hidden, false);
+    assert.match(detailView.innerHTML, new RegExp(route.label));
+    assert.match(detailView.innerHTML, new RegExp(route.expected));
+  }
 });
