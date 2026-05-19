@@ -59,3 +59,36 @@ test("cards include click interaction for selected and minimized states", () => 
   assert.match(html, /data-collapsed-x/);
   assert.match(html, /Escape/);
 });
+
+test("page defines the industrial design content model and sample items", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+
+  assert.match(html, /const\s+sectionMeta\s*=\s*\[/);
+  assert.match(html, /const\s+contentItems\s*=\s*\[/);
+
+  for (const field of [
+    "title",
+    "slug",
+    "category",
+    "summary",
+    "cover",
+    "date",
+    "status",
+    "tags",
+    "materials",
+    "tools",
+    "related",
+    "body",
+  ]) {
+    assert.match(html, new RegExp(`${field}:`, "i"));
+  }
+
+  for (const category of ["works", "process", "inspiration", "experiments", "methods"]) {
+    assert.match(html, new RegExp(`category:\\s*"${category}"`, "i"));
+  }
+
+  assert.match(html, /status:\s*"featured"/);
+  assert.match(html, /template:\s*"case-study"/);
+  assert.match(html, /template:\s*"research-note"/);
+  assert.match(html, /template:\s*"experiment-log"/);
+});
