@@ -1137,7 +1137,7 @@
       const detailView = document.querySelector("#detail-view");
 
       function byDateDesc(items) {
-        return [...items].sort((a, b) => b.date.localeCompare(a.date));
+        return [...items].sort((a, b) => getItemDate(b).localeCompare(getItemDate(a)));
       }
 
       function escapeHtml(value) {
@@ -1147,6 +1147,38 @@
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")
           .replaceAll("'", "&#39;");
+      }
+
+      function safeString(value, fallback = "") {
+        if (value === undefined || value === null) {
+          return fallback;
+        }
+
+        return String(value);
+      }
+
+      function getItemSlug(item) {
+        return safeString(item.slug);
+      }
+
+      function getItemTitle(item) {
+        return safeString(item.title, "Untitled Note");
+      }
+
+      function getItemSummary(item) {
+        return safeString(item.summary);
+      }
+
+      function getItemCategory(item) {
+        return safeString(item.category);
+      }
+
+      function getItemCover(item) {
+        return safeString(item.cover);
+      }
+
+      function getItemDate(item) {
+        return safeString(item.date);
       }
 
       function getItemMaterials(item) {
@@ -1178,21 +1210,25 @@
       }
 
       function createTagPills(tags) {
-        return tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("");
+        return tags.map((tag) => `<span class="tag-pill">${escapeHtml(safeString(tag))}</span>`).join("");
       }
 
       function createItemHref(item) {
-        return `#item/${item.slug}`;
+        const slug = getItemSlug(item);
+
+        return slug ? `#item/${slug}` : "#";
       }
 
       function createContentCard(item) {
+        const cardMeta = [getItemCategory(item), getItemDate(item)].filter(Boolean).join(" / ");
+
         return `
-          <a class="content-card" href="${escapeHtml(createItemHref(item))}" data-route="item" data-category="${escapeHtml(item.category)}">
-            <span class="cover-swatch" data-cover="${escapeHtml(item.cover)}" aria-hidden="true"></span>
+          <a class="content-card" href="${escapeHtml(createItemHref(item))}" data-route="item" data-category="${escapeHtml(getItemCategory(item))}">
+            <span class="cover-swatch" data-cover="${escapeHtml(getItemCover(item))}" aria-hidden="true"></span>
             <span class="content-card-body">
-              <span class="card-meta">${escapeHtml(item.category)} / ${escapeHtml(item.date)}</span>
-              <h3>${escapeHtml(item.title)}</h3>
-              <p>${escapeHtml(item.summary)}</p>
+              <span class="card-meta">${escapeHtml(cardMeta)}</span>
+              <h3>${escapeHtml(getItemTitle(item))}</h3>
+              <p>${escapeHtml(getItemSummary(item))}</p>
               <span class="tag-row">${createTagPills(getItemTags(item).slice(0, 3))}</span>
             </span>
           </a>
@@ -1270,7 +1306,7 @@
       }
 
       function getItem(slug) {
-        return contentItems.find((item) => item.slug === slug);
+        return contentItems.find((item) => getItemSlug(item) === slug);
       }
 
       function getRelatedSections(category) {
@@ -1286,7 +1322,7 @@
           return "";
         }
 
-        return `<ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul>`;
+        return `<ul>${values.map((value) => `<li>${escapeHtml(safeString(value))}</li>`).join("")}</ul>`;
       }
 
       function renderDetailSection(title, body) {
@@ -1316,16 +1352,16 @@
 
       function renderMetaList(item) {
         const meta = [
-          ["Category", getSection(item.category)?.title || item.category],
-          ["Status", item.status],
-          ["Date", item.date],
+          ["Category", getSection(getItemCategory(item))?.title || getItemCategory(item)],
+          ["Status", safeString(item.status)],
+          ["Date", getItemDate(item)],
           ["Tags", getItemTags(item).join(", ")],
           ["Materials", getItemMaterials(item).join(", ")],
           ["Tools", Array.isArray(item.tools) ? item.tools.join(", ") : ""],
-          ["Role", item.role],
-          ["Year", item.year],
-          ["Duration", item.duration],
-          ["Stage", item.stage],
+          ["Role", safeString(item.role)],
+          ["Year", safeString(item.year)],
+          ["Duration", safeString(item.duration)],
+          ["Stage", safeString(item.stage)],
         ].filter(([, value]) => value);
 
         return `
@@ -1341,19 +1377,22 @@
       }
 
       function renderDetailShell(item, templateLabel, mainContent) {
-        const section = getSection(item.category);
+        const category = getItemCategory(item);
+        const section = getSection(category);
+        const backHref = category ? createCategoryHref(category) : "#";
+        const backLabel = section?.title || "Library";
 
         return `
           <article class="route-panel detail-layout" aria-labelledby="detail-title">
             <div class="detail-main">
               <div class="route-topline">
-                <a class="back-link" href="${escapeHtml(createCategoryHref(item.category))}">Back to ${escapeHtml(section?.title || "Category")}</a>
+                <a class="back-link" href="${escapeHtml(backHref)}">Back to ${escapeHtml(backLabel)}</a>
                 <span class="feed-eyebrow">${escapeHtml(templateLabel)}</span>
               </div>
-              <h2 id="detail-title">${escapeHtml(item.title)}</h2>
-              <p class="detail-summary">${escapeHtml(item.summary)}</p>
+              <h2 id="detail-title">${escapeHtml(getItemTitle(item))}</h2>
+              <p class="detail-summary">${escapeHtml(getItemSummary(item))}</p>
               <div class="detail-cover">
-                <span class="cover-swatch" data-cover="${escapeHtml(item.cover)}" aria-hidden="true"></span>
+                <span class="cover-swatch" data-cover="${escapeHtml(getItemCover(item))}" aria-hidden="true"></span>
               </div>
               ${mainContent}
             </div>

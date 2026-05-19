@@ -409,7 +409,7 @@ test("page defines item detail views for case studies, research notes, and exper
   assert.match(html, /Case Study/);
   assert.match(html, /Research Note/);
   assert.match(html, /Experiment Log/);
-  assert.match(html, /#item\/\$\{item\.slug\}/);
+  assert.match(html, /function\s+createItemHref/);
   assert.match(html, /hash\.startsWith\("item\/"\)/);
 
   const detailRoutes = [
@@ -441,4 +441,89 @@ test("page defines item detail views for case studies, research notes, and exper
     assert.match(detailView.innerHTML, new RegExp(route.label));
     assert.match(detailView.innerHTML, new RegExp(route.expected));
   }
+});
+
+test("detail routes escape hostile item data and tolerate missing fields", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const unsafeTitle = `Unsafe <Detail> & "Quote" 'Apostrophe'`;
+  const unsafeSummary = `Detail summary <script>alert("x")</script> & "quotes"`;
+  const unsafeTag = `tag"><script>alert('tag')</script>`;
+  const beforeRender = `
+      contentItems.push({
+        title: ${JSON.stringify(unsafeTitle)},
+        slug: "unsafe-detail",
+        category: "experiments",
+        template: "experiment-log",
+        summary: ${JSON.stringify(unsafeSummary)},
+        cover: "blue-grid",
+        date: "2026-05-13",
+        status: "published",
+        tags: [${JSON.stringify(unsafeTag)}],
+        materials: [],
+        tools: [],
+        related: [],
+        body: "Body with <b>unsafe</b> text.",
+        hypothesis: "A <hypothesis> should be escaped.",
+        variables: ["slot <radius>", "edge & setback"],
+        outputs: []
+      });
+
+      contentItems.push({
+        category: "works",
+        template: "research-note",
+        status: "featured",
+        body: "Sparse body"
+      });
+
+      window.location.hash = "#item/unsafe-detail";
+  `;
+
+  const { detailView } = runInlineScript(html, beforeRender);
+
+  assert.match(detailView.innerHTML, /Unsafe &lt;Detail&gt; &amp; &quot;Quote&quot; &#39;Apostrophe&#39;/);
+  assert.match(detailView.innerHTML, /Detail summary &lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt; &amp; &quot;quotes&quot;/);
+  assert.match(detailView.innerHTML, /tag&quot;&gt;&lt;script&gt;alert\(&#39;tag&#39;\)&lt;\/script&gt;/);
+  assert.match(detailView.innerHTML, /Body with &lt;b&gt;unsafe&lt;\/b&gt; text\./);
+  assert.match(detailView.innerHTML, /A &lt;hypothesis&gt; should be escaped\./);
+  assert.doesNotMatch(detailView.innerHTML, /<script>/);
+  assert.doesNotMatch(detailView.innerHTML, new RegExp(unsafeTitle));
+
+  const { homeView, categoryView, detailView: sparseDetailView } = runInlineScript(html, `
+      contentItems.push({
+        category: "works",
+        template: "research-note",
+        status: "featured",
+        body: "Sparse body"
+      });
+
+      contentItems.push({
+        slug: "sparse-detail",
+        category: "process",
+        template: "research-note",
+        body: "Sparse body"
+      });
+
+      window.location.hash = "#item/sparse-detail";
+  `);
+
+  assert.equal(homeView.hidden, true);
+  assert.equal(categoryView.hidden, true);
+  assert.equal(sparseDetailView.hidden, false);
+  assert.doesNotMatch(sparseDetailView.innerHTML, /undefined/);
+  assert.match(sparseDetailView.innerHTML, /Untitled Note/);
+  assert.match(homeView.innerHTML, /href="#"/);
+  assert.match(homeView.innerHTML, /Untitled Note/);
+  assert.doesNotMatch(homeView.innerHTML, /undefined/);
+});
+
+test("unknown item routes do not crash and safely fall back to home", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const { homeView, categoryView, detailView } = runInlineScript(html, `
+      window.location.hash = "#item/not-a-real-item";
+  `);
+
+  assert.equal(homeView.hidden, false);
+  assert.equal(categoryView.hidden, true);
+  assert.equal(detailView.hidden, true);
+  assert.equal(detailView.innerHTML, "");
 });
