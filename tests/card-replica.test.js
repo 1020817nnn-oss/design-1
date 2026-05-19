@@ -2,9 +2,64 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "..");
 const htmlPath = path.join(root, "index.html");
+
+function extractArrayLiteral(source, constName) {
+  const declaration = new RegExp(`const\\s+${constName}\\s*=\\s*\\[`);
+  const match = declaration.exec(source);
+
+  assert.ok(match, `expected ${constName} declaration`);
+
+  const start = source.indexOf("[", match.index);
+  let depth = 0;
+  let quote = "";
+  let isEscaped = false;
+
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (quote) {
+      if (isEscaped) {
+        isEscaped = false;
+      } else if (char === "\\") {
+        isEscaped = true;
+      } else if (char === quote) {
+        quote = "";
+      }
+
+      continue;
+    }
+
+    if (char === "\"" || char === "'" || char === "`") {
+      quote = char;
+      continue;
+    }
+
+    if (char === "[") {
+      depth += 1;
+    } else if (char === "]") {
+      depth -= 1;
+
+      if (depth === 0) {
+        return source.slice(start, index + 1);
+      }
+    }
+  }
+
+  assert.fail(`could not extract ${constName} array literal`);
+}
+
+function readArrayFromHtml(html, constName) {
+  const literal = extractArrayLiteral(html, constName);
+  const value = vm.runInNewContext(`(${literal})`, Object.create(null), {
+    timeout: 1000,
+  });
+
+  return JSON.parse(JSON.stringify(value));
+}
 
 test("homepage renders the five industrial design library cards", () => {
   const html = fs.readFileSync(htmlPath, "utf8");
@@ -62,11 +117,10 @@ test("cards include click interaction for selected and minimized states", () => 
 
 test("page defines the industrial design content model and sample items", () => {
   const html = fs.readFileSync(htmlPath, "utf8");
-
-  assert.match(html, /const\s+sectionMeta\s*=\s*\[/);
-  assert.match(html, /const\s+contentItems\s*=\s*\[/);
-
-  for (const field of [
+  const sectionMeta = readArrayFromHtml(html, "sectionMeta");
+  const contentItems = readArrayFromHtml(html, "contentItems");
+  const expectedCategories = ["works", "process", "inspiration", "experiments", "methods"];
+  const requiredFields = [
     "title",
     "slug",
     "category",
@@ -79,16 +133,46 @@ test("page defines the industrial design content model and sample items", () => 
     "tools",
     "related",
     "body",
-  ]) {
-    assert.match(html, new RegExp(`${field}:`, "i"));
+  ];
+  const expectedTitles = [
+    "Modular Lamp Handle Study",
+    "Foam Model Balance Notes",
+    "Soft Edge Appliance References",
+    "Parametric Vent Pattern Tests",
+    "Three-Pass Object Critique",
+  ];
+
+  assert.equal(sectionMeta.length, 5);
+  assert.equal(contentItems.length, 5);
+  assert.deepEqual(sectionMeta.map((section) => section.category), expectedCategories);
+
+  const categorySet = new Set(expectedCategories);
+  const slugs = contentItems.map((item) => item.slug);
+  const slugSet = new Set(slugs);
+
+  assert.equal(slugSet.size, contentItems.length);
+
+  for (const item of contentItems) {
+    for (const field of requiredFields) {
+      assert.ok(Object.hasOwn(item, field), `expected ${item.slug} to define ${field}`);
+    }
+
+    assert.ok(categorySet.has(item.category), `expected ${item.slug} category to match a section`);
+    assert.ok(Array.isArray(item.tags), `expected ${item.slug} tags to be an array`);
+    assert.ok(Array.isArray(item.materials), `expected ${item.slug} materials to be an array`);
+    assert.ok(Array.isArray(item.tools), `expected ${item.slug} tools to be an array`);
+    assert.ok(Array.isArray(item.related), `expected ${item.slug} related to be an array`);
+
+    for (const relatedSlug of item.related) {
+      assert.ok(slugSet.has(relatedSlug), `expected ${item.slug} related slug ${relatedSlug} to resolve`);
+    }
   }
 
-  for (const category of ["works", "process", "inspiration", "experiments", "methods"]) {
-    assert.match(html, new RegExp(`category:\\s*"${category}"`, "i"));
-  }
-
-  assert.match(html, /status:\s*"featured"/);
-  assert.match(html, /template:\s*"case-study"/);
-  assert.match(html, /template:\s*"research-note"/);
-  assert.match(html, /template:\s*"experiment-log"/);
+  assert.deepEqual([...new Set(contentItems.map((item) => item.template))].sort(), [
+    "case-study",
+    "experiment-log",
+    "research-note",
+  ]);
+  assert.ok(contentItems.some((item) => item.status === "featured"));
+  assert.deepEqual(contentItems.map((item) => item.title).sort(), expectedTitles.sort());
 });
