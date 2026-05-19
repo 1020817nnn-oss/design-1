@@ -187,6 +187,14 @@ test("homepage renders the five industrial design library cards", () => {
   }
 });
 
+test("mobile heading can wrap without forcing horizontal overflow", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+
+  assert.match(html, /h1\s*{[\s\S]*?white-space:\s*nowrap;/);
+  assert.match(html, /@media \(max-width:\s*820px\)[\s\S]*?h1\s*{[\s\S]*?white-space:\s*normal;/);
+  assert.match(html, /@media \(max-width:\s*820px\)[\s\S]*?h1\s*{[\s\S]*?max-width:\s*min\(100%,\s*720px\);/);
+});
+
 test("cards define original-inspired geometry, layering, and motion hooks", () => {
   const html = fs.readFileSync(htmlPath, "utf8");
 
