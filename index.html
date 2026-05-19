@@ -668,6 +668,57 @@
         background: rgba(255, 255, 255, 0.48);
       }
 
+      .route-panel {
+        padding: 52px 0 96px;
+        border-top: 1px solid rgba(32, 31, 30, 0.12);
+      }
+
+      .route-topline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 34px;
+      }
+
+      .back-link {
+        color: #4f4942;
+        font-size: 14px;
+        text-decoration: none;
+      }
+
+      .back-link:hover {
+        text-decoration: underline;
+      }
+
+      .category-hero {
+        max-width: 760px;
+        margin-bottom: 34px;
+      }
+
+      .category-hero h2 {
+        margin: 0 0 16px;
+        font-family: var(--serif);
+        font-size: clamp(42px, 6vw, 82px);
+        font-weight: 500;
+        line-height: 0.95;
+      }
+
+      .category-hero p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 19px;
+        line-height: 1.45;
+      }
+
+      .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 0 24px;
+      }
+
       @keyframes cardEnter {
         0% {
           opacity: 0;
@@ -825,6 +876,7 @@
       </section>
       <section class="library-feed" id="library-feed" aria-label="Curated industrial design content">
         <div id="home-view"></div>
+        <div id="category-view" hidden></div>
       </section>
     </main>
     <script>
@@ -978,6 +1030,7 @@
       ];
 
       const homeView = document.querySelector("#home-view");
+      const categoryView = document.querySelector("#category-view");
 
       function byDateDesc(items) {
         return [...items].sort((a, b) => b.date.localeCompare(a.date));
@@ -1104,6 +1157,98 @@
         ].join("");
       }
 
+      function getSection(category) {
+        return sectionMeta.find((section) => section.category === category);
+      }
+
+      function getRelatedSections(category) {
+        return sectionMeta.filter((section) => section.category !== category).slice(0, 4);
+      }
+
+      function createCategoryHref(category) {
+        return `#category/${category}`;
+      }
+
+      function renderCategory(category) {
+        const section = getSection(category);
+
+        if (!section) {
+          return "";
+        }
+
+        const items = byDateDesc(contentItems.filter((item) => item.category === category));
+        const tags = [...new Set(items.flatMap(getItemTags))].sort();
+        const relatedSections = getRelatedSections(category);
+
+        return `
+          <section class="route-panel" aria-labelledby="category-title">
+            <div class="route-topline">
+              <a class="back-link" href="#">Back to Library</a>
+              <span class="feed-eyebrow">${escapeHtml(section.eyebrow)}</span>
+            </div>
+            <div class="category-hero">
+              <h2 id="category-title">${escapeHtml(section.title)}</h2>
+              <p>${escapeHtml(section.summary)}</p>
+            </div>
+            <div class="filter-row" aria-label="Category tags">
+              ${createTagPills(tags)}
+            </div>
+            <div class="content-grid">
+              ${items.map(createContentCard).join("")}
+            </div>
+            <section class="feed-section" aria-labelledby="related-sections-title">
+              <div class="feed-header">
+                <div>
+                  <p class="feed-eyebrow">Related Sections</p>
+                  <h2 class="feed-title" id="related-sections-title">Keep following the thread.</h2>
+                </div>
+                <p class="feed-summary">Move laterally between finished work, process records, references, experiments, and reusable methods.</p>
+              </div>
+              <div class="tag-index">
+                ${relatedSections.map((related) => `
+                  <a class="tag-pill" data-route="category" href="${escapeHtml(createCategoryHref(related.category))}">
+                    ${escapeHtml(related.title)}
+                  </a>
+                `).join("")}
+              </div>
+            </section>
+          </section>
+        `;
+      }
+
+      function showHomeView() {
+        homeView.hidden = false;
+        categoryView.hidden = true;
+      }
+
+      function showCategoryView(category) {
+        const section = getSection(category);
+
+        if (!section) {
+          showHomeView();
+          return;
+        }
+
+        categoryView.innerHTML = renderCategory(category);
+        homeView.hidden = true;
+        categoryView.hidden = false;
+      }
+
+      function renderRoute() {
+        const hash = window.location.hash.replace(/^#/, "");
+
+        if (hash.startsWith("category/")) {
+          showCategoryView(hash.replace("category/", ""));
+          return;
+        }
+
+        showHomeView();
+      }
+
+      function navigateToCategory(category) {
+        window.location.hash = `category/${category}`;
+      }
+
       const collapsedSlots = [
         { x: -92, angle: "-4deg", z: 1 },
         { x: -38, angle: "-2deg", z: 2 },
@@ -1126,7 +1271,7 @@
         const currentIndex = stage.dataset.activeIndex;
 
         if (currentIndex === String(activeIndex)) {
-          clearActiveCard();
+          navigateToCategory(cards[activeIndex].dataset.category);
           return;
         }
 
@@ -1167,6 +1312,8 @@
       });
 
       renderHome();
+      window.addEventListener("hashchange", renderRoute);
+      renderRoute();
     </script>
   </body>
 </html>

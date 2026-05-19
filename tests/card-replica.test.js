@@ -80,13 +80,20 @@ function createClassList() {
 }
 
 function createCardStub() {
+  const listeners = new Map();
+
   return {
     dataset: {},
     classList: createClassList(),
     style: {
       setProperty() {},
     },
-    addEventListener() {},
+    addEventListener(type, handler) {
+      listeners.set(type, handler);
+    },
+    dispatchEvent(type, event = {}) {
+      listeners.get(type)?.(event);
+    },
     removeAttribute() {},
     setAttribute() {},
   };
@@ -94,17 +101,29 @@ function createCardStub() {
 
 function runInlineScript(html, beforeRender = "") {
   const homeView = { innerHTML: "" };
+  const categoryView = { hidden: false, innerHTML: "" };
   const stage = {
     dataset: {},
     classList: createClassList(),
   };
-  const cards = Array.from({ length: 5 }, createCardStub);
+  const cardCategories = ["works", "process", "inspiration", "experiments", "methods"];
+  const cards = cardCategories.map((category) => {
+    const card = createCardStub();
+    card.dataset.category = category;
+    return card;
+  });
+  const windowListeners = new Map();
+  const location = { hash: "" };
   const script = extractInlineScript(html).replace(/\n\s*renderHome\(\);/, `\n${beforeRender}\n      renderHome();`);
   const context = {
     document: {
       querySelector(selector) {
         if (selector === "#home-view") {
           return homeView;
+        }
+
+        if (selector === "#category-view") {
+          return categoryView;
         }
 
         if (selector === ".card-stage") {
@@ -122,11 +141,17 @@ function runInlineScript(html, beforeRender = "") {
       },
       addEventListener() {},
     },
+    window: {
+      location,
+      addEventListener(type, handler) {
+        windowListeners.set(type, handler);
+      },
+    },
   };
 
   vm.runInNewContext(script, context, { timeout: 1000 });
 
-  return { homeView, stage, cards };
+  return { homeView, categoryView, stage, cards, location, windowListeners };
 }
 
 test("homepage renders the five industrial design library cards", () => {
@@ -280,6 +305,19 @@ test("homepage includes curated content library modules", () => {
   assert.match(html, /class="[^"]*\btag-index\b/);
 });
 
+test("page defines hash-routed category views", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+
+  assert.match(html, /id="category-view"/);
+  assert.match(html, /function\s+renderRoute/);
+  assert.match(html, /function\s+renderCategory/);
+  assert.match(html, /function\s+navigateToCategory/);
+  assert.match(html, /hashchange",\s*renderRoute/);
+  assert.match(html, /#category\/\$\{category\}/);
+  assert.match(html, /data-route="category"/);
+  assert.match(html, /Related Sections/);
+});
+
 test("homepage render creates modules and content cards from data", () => {
   const html = fs.readFileSync(htmlPath, "utf8");
   const { homeView } = runInlineScript(html);
@@ -331,4 +369,26 @@ test("homepage render tolerates optional materials and escapes content data", ()
   assert.match(homeView.innerHTML, /cmf&quot;&gt;&lt;script&gt;alert\(&#39;tag&#39;\)&lt;\/script&gt;/);
   assert.doesNotMatch(homeView.innerHTML, new RegExp(unsafeTitle));
   assert.doesNotMatch(homeView.innerHTML, new RegExp(unsafeSummary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
+
+test("category route renders category view and active card second click changes hash", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const beforeRender = `
+      window.location.hash = "#category/works";
+  `;
+  const { homeView, categoryView, cards, location } = runInlineScript(html, beforeRender);
+
+  assert.equal(homeView.hidden, true);
+  assert.equal(categoryView.hidden, false);
+  assert.match(categoryView.innerHTML, /Works/);
+  assert.match(categoryView.innerHTML, /Modular Lamp Handle Study/);
+  assert.match(categoryView.innerHTML, /Related Sections/);
+  assert.match(categoryView.innerHTML, /href="#category\/process"/);
+
+  location.hash = "";
+  cards[0].dispatchEvent("click");
+  assert.equal(location.hash, "");
+
+  cards[0].dispatchEvent("click");
+  assert.equal(location.hash, "category/works");
 });
