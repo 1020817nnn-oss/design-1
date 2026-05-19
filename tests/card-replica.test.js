@@ -61,6 +61,74 @@ function readArrayFromHtml(html, constName) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function extractInlineScript(html) {
+  const match = html.match(/<script>([\s\S]*?)<\/script>/);
+
+  assert.ok(match, "expected inline script");
+
+  return match[1];
+}
+
+function createClassList() {
+  const classes = new Set();
+
+  return {
+    add: (...tokens) => tokens.forEach((token) => classes.add(token)),
+    remove: (...tokens) => tokens.forEach((token) => classes.delete(token)),
+    contains: (token) => classes.has(token),
+  };
+}
+
+function createCardStub() {
+  return {
+    dataset: {},
+    classList: createClassList(),
+    style: {
+      setProperty() {},
+    },
+    addEventListener() {},
+    removeAttribute() {},
+    setAttribute() {},
+  };
+}
+
+function runInlineScript(html, beforeRender = "") {
+  const homeView = { innerHTML: "" };
+  const stage = {
+    dataset: {},
+    classList: createClassList(),
+  };
+  const cards = Array.from({ length: 5 }, createCardStub);
+  const script = extractInlineScript(html).replace(/\n\s*renderHome\(\);/, `\n${beforeRender}\n      renderHome();`);
+  const context = {
+    document: {
+      querySelector(selector) {
+        if (selector === "#home-view") {
+          return homeView;
+        }
+
+        if (selector === ".card-stage") {
+          return stage;
+        }
+
+        return null;
+      },
+      querySelectorAll(selector) {
+        if (selector === ".craft-card") {
+          return cards;
+        }
+
+        return [];
+      },
+      addEventListener() {},
+    },
+  };
+
+  vm.runInNewContext(script, context, { timeout: 1000 });
+
+  return { homeView, stage, cards };
+}
+
 test("homepage renders the five industrial design library cards", () => {
   const html = fs.readFileSync(htmlPath, "utf8");
 
@@ -188,4 +256,79 @@ test("page defines the industrial design content model and sample items", () => 
   ]);
   assert.ok(contentItems.some((item) => item.status === "featured"));
   assert.deepEqual(contentItems.map((item) => item.title).sort(), expectedTitles.sort());
+});
+
+test("homepage includes curated content library modules", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+
+  assert.match(html, /id="home-view"/);
+  assert.match(html, /class="[^"]*\blibrary-feed\b/);
+  assert.match(html, /function\s+renderHome/);
+  assert.match(html, /function\s+renderContentModule/);
+
+  for (const label of [
+    "Featured Works",
+    "Recent Notes",
+    "Material / CMF Watch",
+    "Studio Experiments",
+    "Reading the Index",
+  ]) {
+    assert.match(html, new RegExp(label.replace("/", "\\/")));
+  }
+
+  assert.match(html, /class="[^"]*\bcontent-card\b/);
+  assert.match(html, /class="[^"]*\btag-index\b/);
+});
+
+test("homepage render creates modules and content cards from data", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const { homeView } = runInlineScript(html);
+
+  assert.ok(homeView);
+
+  for (const label of [
+    "Featured Works",
+    "Recent Notes",
+    "Material / CMF Watch",
+    "Studio Experiments",
+    "Reading the Index",
+  ]) {
+    assert.match(homeView.innerHTML, new RegExp(label.replace("/", "\\/")));
+  }
+
+  assert.match(homeView.innerHTML, /href="#item\/modular-lamp-handle-study"/);
+  assert.match(homeView.innerHTML, /data-category="works"/);
+  assert.match(homeView.innerHTML, /class="content-card"/);
+  assert.match(homeView.innerHTML, /class="tag-index"/);
+});
+
+test("homepage render tolerates optional materials and escapes content data", () => {
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const unsafeTitle = `Unsafe <Title> & "Quote" 'Apostrophe'`;
+  const unsafeSummary = `Summary with <script>alert("x")</script> & "quotes"`;
+  const unsafeTag = `cmf"><script>alert('tag')</script>`;
+  const beforeRender = `
+      contentItems.push({
+        title: ${JSON.stringify(unsafeTitle)},
+        slug: "unsafe-item",
+        category: "inspiration",
+        template: "research-note",
+        summary: ${JSON.stringify(unsafeSummary)},
+        cover: "soft-cream",
+        date: "2026-05-12",
+        status: "published",
+        tags: [${JSON.stringify(unsafeTag)}],
+        tools: [],
+        related: [],
+        body: "Unsafe fixture item."
+      });
+  `;
+
+  const { homeView } = runInlineScript(html, beforeRender);
+
+  assert.match(homeView.innerHTML, /Unsafe &lt;Title&gt; &amp; &quot;Quote&quot; &#39;Apostrophe&#39;/);
+  assert.match(homeView.innerHTML, /Summary with &lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt; &amp; &quot;quotes&quot;/);
+  assert.match(homeView.innerHTML, /cmf&quot;&gt;&lt;script&gt;alert\(&#39;tag&#39;\)&lt;\/script&gt;/);
+  assert.doesNotMatch(homeView.innerHTML, new RegExp(unsafeTitle));
+  assert.doesNotMatch(homeView.innerHTML, new RegExp(unsafeSummary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });

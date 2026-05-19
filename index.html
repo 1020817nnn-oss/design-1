@@ -517,6 +517,157 @@
         transition-delay: 180ms;
       }
 
+      .library-feed {
+        width: min(1120px, 100% - 32px);
+        margin: -44px auto 0;
+        padding: 0 0 96px;
+      }
+
+      .feed-section {
+        padding: 52px 0;
+        border-top: 1px solid rgba(32, 31, 30, 0.12);
+      }
+
+      .feed-header {
+        display: grid;
+        grid-template-columns: minmax(0, 0.86fr) minmax(220px, 0.42fr);
+        gap: 32px;
+        align-items: end;
+        margin-bottom: 22px;
+      }
+
+      .feed-eyebrow,
+      .card-meta,
+      .detail-kicker {
+        margin: 0 0 10px;
+        color: #8a8176;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .feed-title {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: clamp(30px, 3vw, 44px);
+        font-weight: 500;
+        line-height: 1;
+      }
+
+      .feed-summary {
+        margin: 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.5;
+      }
+
+      .content-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .content-card {
+        display: grid;
+        min-height: 322px;
+        overflow: hidden;
+        border: 1px solid rgba(32, 31, 30, 0.12);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.48);
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .content-card:focus-visible {
+        outline: 3px solid rgba(19, 107, 255, 0.42);
+        outline-offset: 4px;
+      }
+
+      .cover-swatch {
+        min-height: 154px;
+        border-bottom: 1px solid rgba(32, 31, 30, 0.1);
+      }
+
+      .cover-swatch[data-cover="amber-aluminum"] {
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.34), transparent 42%),
+          linear-gradient(120deg, #c86d2f 0 38%, #f5c474 38% 58%, #9aa0a3 58% 100%);
+      }
+
+      .cover-swatch[data-cover="foam-graphite"] {
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.38), transparent),
+          repeating-linear-gradient(135deg, #b7c3d0 0 18px, #36404a 18px 22px, #d9dde0 22px 36px);
+      }
+
+      .cover-swatch[data-cover="soft-cream"] {
+        background:
+          radial-gradient(circle at 28% 30%, #fff5dc 0 18%, transparent 19%),
+          linear-gradient(135deg, #f4e7cc, #b7ada1 48%, #f8f4ea);
+      }
+
+      .cover-swatch[data-cover="blue-grid"] {
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent),
+          repeating-linear-gradient(90deg, #0d6593 0 4px, #9ed7ef 4px 7px, #0d6593 7px 22px);
+      }
+
+      .cover-swatch[data-cover="ink-paper"] {
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.52), transparent),
+          repeating-linear-gradient(0deg, #27221d 0 2px, #f2e7d2 2px 14px);
+      }
+
+      .content-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 18px;
+      }
+
+      .content-card h3 {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: 25px;
+        font-weight: 500;
+        line-height: 1.05;
+      }
+
+      .content-card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.42;
+      }
+
+      .tag-row,
+      .tag-index {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: auto;
+      }
+
+      .tag-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        border: 1px solid rgba(32, 31, 30, 0.14);
+        border-radius: 999px;
+        padding: 3px 9px;
+        color: #4f4942;
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .tag-index {
+        padding: 18px;
+        border: 1px solid rgba(32, 31, 30, 0.12);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.48);
+      }
+
       @keyframes cardEnter {
         0% {
           opacity: 0;
@@ -574,6 +725,24 @@
           margin-top: 42px;
           transform: scale(0.72);
           transform-origin: top center;
+        }
+
+        .library-feed {
+          width: min(100%, 100vw - 32px);
+          margin-top: -24px;
+        }
+
+        .feed-header {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        .content-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .content-card {
+          min-height: 0;
         }
       }
 
@@ -653,6 +822,9 @@
             </span>
           </button>
         </div>
+      </section>
+      <section class="library-feed" id="library-feed" aria-label="Curated industrial design content">
+        <div id="home-view"></div>
       </section>
     </main>
     <script>
@@ -805,6 +977,133 @@
         },
       ];
 
+      const homeView = document.querySelector("#home-view");
+
+      function byDateDesc(items) {
+        return [...items].sort((a, b) => b.date.localeCompare(a.date));
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function getItemMaterials(item) {
+        return Array.isArray(item.materials) ? item.materials : [];
+      }
+
+      function getItemTags(item) {
+        return Array.isArray(item.tags) ? item.tags : [];
+      }
+
+      function getItemsForModule(moduleName) {
+        if (moduleName === "featuredWorks") {
+          return contentItems.filter((item) => item.category === "works" && item.status === "featured").slice(0, 3);
+        }
+
+        if (moduleName === "recentNotes") {
+          return byDateDesc(contentItems.filter((item) => item.category !== "works")).slice(0, 3);
+        }
+
+        if (moduleName === "cmfWatch") {
+          return contentItems.filter((item) => getItemTags(item).includes("cmf") || getItemMaterials(item).length > 0).slice(0, 3);
+        }
+
+        if (moduleName === "studioExperiments") {
+          return contentItems.filter((item) => item.category === "experiments").slice(0, 3);
+        }
+
+        return [];
+      }
+
+      function createTagPills(tags) {
+        return tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("");
+      }
+
+      function createContentCard(item) {
+        return `
+          <a class="content-card" href="#item/${escapeHtml(item.slug)}" data-route="item" data-category="${escapeHtml(item.category)}">
+            <span class="cover-swatch" data-cover="${escapeHtml(item.cover)}" aria-hidden="true"></span>
+            <span class="content-card-body">
+              <span class="card-meta">${escapeHtml(item.category)} / ${escapeHtml(item.date)}</span>
+              <h3>${escapeHtml(item.title)}</h3>
+              <p>${escapeHtml(item.summary)}</p>
+              <span class="tag-row">${createTagPills(getItemTags(item).slice(0, 3))}</span>
+            </span>
+          </a>
+        `;
+      }
+
+      function renderContentModule({ eyebrow, title, summary, items }) {
+        return `
+          <section class="feed-section">
+            <div class="feed-header">
+              <div>
+                <p class="feed-eyebrow">${escapeHtml(eyebrow)}</p>
+                <h2 class="feed-title">${escapeHtml(title)}</h2>
+              </div>
+              <p class="feed-summary">${escapeHtml(summary)}</p>
+            </div>
+            <div class="content-grid">
+              ${items.map(createContentCard).join("")}
+            </div>
+          </section>
+        `;
+      }
+
+      function renderTagIndex() {
+        const tags = [...new Set(contentItems.flatMap(getItemTags))].sort();
+
+        return `
+          <section class="feed-section">
+            <div class="feed-header">
+              <div>
+                <p class="feed-eyebrow">Reading the Index</p>
+                <h2 class="feed-title">Browse by material, process, and design question.</h2>
+              </div>
+              <p class="feed-summary">Tags connect finished works to notes, experiments, references, and methods.</p>
+            </div>
+            <div class="tag-index">
+              ${createTagPills(tags)}
+            </div>
+          </section>
+        `;
+      }
+
+      function renderHome() {
+        homeView.innerHTML = [
+          renderContentModule({
+            eyebrow: "Featured Works",
+            title: "Portfolio-level studies with the process still visible.",
+            summary: "Selected finished work anchors the library and gives visitors a fast read on design range.",
+            items: getItemsForModule("featuredWorks"),
+          }),
+          renderContentModule({
+            eyebrow: "Recent Notes",
+            title: "Fresh observations from the studio notebook.",
+            summary: "Process, inspiration, and methods stay close to the work instead of hiding behind finished images.",
+            items: getItemsForModule("recentNotes"),
+          }),
+          renderContentModule({
+            eyebrow: "Material / CMF Watch",
+            title: "Surfaces, finishes, and material signals worth revisiting.",
+            summary: "A compact lens on industrial design details that often decide whether an object feels resolved.",
+            items: getItemsForModule("cmfWatch"),
+          }),
+          renderContentModule({
+            eyebrow: "Studio Experiments",
+            title: "Small trials that test form, structure, and interaction.",
+            summary: "The experiment log keeps unfinished ideas useful by naming the hypothesis and result.",
+            items: getItemsForModule("studioExperiments"),
+          }),
+          renderTagIndex(),
+        ].join("");
+      }
+
       const collapsedSlots = [
         { x: -92, angle: "-4deg", z: 1 },
         { x: -38, angle: "-2deg", z: 2 },
@@ -866,6 +1165,8 @@
           clearActiveCard();
         }
       });
+
+      renderHome();
     </script>
   </body>
 </html>
