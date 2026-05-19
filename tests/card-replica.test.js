@@ -202,7 +202,7 @@ test("cards define original-inspired geometry, layering, and motion hooks", () =
   assert.match(html, /prefers-reduced-motion/);
 });
 
-test("cards include click interaction for selected and minimized states", () => {
+test("cards preserve selected and minimized states while supporting category routes", () => {
   const html = fs.readFileSync(htmlPath, "utf8");
 
   assert.match(html, /class="[^"]*\bcard-description\b/);
@@ -211,6 +211,8 @@ test("cards include click interaction for selected and minimized states", () => 
   assert.match(html, /classList\.add\("is-minimized"\)/);
   assert.match(html, /data-collapsed-x/);
   assert.match(html, /Escape/);
+  assert.match(html, /navigateToCategory\(cards\[activeIndex\]\.dataset\.category\)/);
+  assert.match(html, /aria-pressed/);
 });
 
 test("page defines the industrial design content model and sample items", () => {
